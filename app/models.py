@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from pydantic import SecretStr
-import datetime
+from datetime import datetime
 
 
 class User(BaseModel):

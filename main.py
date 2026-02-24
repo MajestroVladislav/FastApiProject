@@ -2,12 +2,12 @@ import asyncio
 import uvicorn
 
 from fastapi import FastAPI
-#from fastapi import HTTPException
-#from typing import List
 from starlette.middleware.cors import CORSMiddleware
 
+from app.routes import posts
 
 app = FastAPI(root_path="/api/v1")
+app.include_router(posts.router, prefix="/posts", tags=["posts"])
 app.add_middleware(
     CORSMiddleware,    # type: ignore
     allow_origins=["*"],
