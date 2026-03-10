@@ -5,6 +5,11 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from app.routes import posts
+from app.database import engine
+from app import models
+
+models.Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(root_path="/api/v1")
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
