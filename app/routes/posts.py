@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List
 from sqlalchemy.orm import Session
 
-from app.models import Post, User, Category, Location # Импортируем ORM-модели
-from app.schemas import PostCreate, PostRead, UserCreate, UserRead, CategoryRead, CategoryCreate, LocationRead, LocationCreate # Импортируем Pydantic-схемы
-from app.database import get_db # Импортируем зависимость для БД
+from app.models import Post, User, Category, Location  # Импортируем ORM-модели
+from app.schemas import PostCreate, PostRead, UserCreate, UserRead, CategoryRead, CategoryCreate, LocationRead, LocationCreate  # Импортируем Pydantic-схемы
+from app.database import get_db  # Импортируем зависимость для БД
 
 router = APIRouter()
 
