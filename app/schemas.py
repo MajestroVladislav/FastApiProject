@@ -1,4 +1,4 @@
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +9,18 @@ class UserBase(BaseModel):
 class UserCreate(BaseModel):
     password: str
     name: str
+
+    @field_validator('name')
+    def validate_name(cls, name):
+        if not name.isalpha():
+            raise ValueError("Name must contain only letters")
+        return name
+
+    @field_validator('password')
+    def validate_name(cls, password):
+        if len(password) < 8:
+            raise ValueError("Password is too short, please include 8 or more symbols")
+        return password
 
 class UserRead(BaseModel):
     id: int
