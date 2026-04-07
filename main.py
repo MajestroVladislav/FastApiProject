@@ -5,8 +5,6 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from app.routes import posts
-from app.database import engine
-from app import models
 
 
 app = FastAPI(root_path="/api/v1")

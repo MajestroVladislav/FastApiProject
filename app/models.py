@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship, declarative_base
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -37,11 +36,11 @@ class Post(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     text = Column(Text, nullable=False)
-    pub_date = Column(DateTime, default=datetime.utcnow)
-    image = Column(String, nullable=True)  # Можно заменить тип, если нужно хранить путь или URL
-    author_id = Column(Integer, ForeignKey('users.id'))
-    location_id = Column(Integer, ForeignKey('locations.id'))
-    category_id = Column(Integer, ForeignKey('categories.id'))
+    pub_date = Column(DateTime, nullable=True)
+    image = Column(String, nullable=True)
+    author_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    location_id = Column(Integer, ForeignKey('locations.id'), nullable=True)
+    category_id = Column(Integer, ForeignKey('categories.id'), nullable=True)
 
     author = relationship("User", back_populates="posts")
     location = relationship("Location", back_populates="posts")
@@ -53,9 +52,9 @@ class Comment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    post_id = Column(Integer, ForeignKey('posts.id'))
-    author_id = Column(Integer, ForeignKey('users.id'))
+    created_at = Column(DateTime, nullable=True)
+    post_id = Column(Integer, ForeignKey('posts.id'), nullable=True)
+    author_id = Column(Integer, ForeignKey('users.id'), nullable=True)
 
-    post = relationship("Post", back_populates="comments")
-    author = relationship("User", back_populates="comments")
+    post = relationship('Post', back_populates='comments')
+    author = relationship('User', back_populates='comments')

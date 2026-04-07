@@ -1,4 +1,4 @@
-from pydantic import BaseModel, SecretStr, field_validator
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
 
