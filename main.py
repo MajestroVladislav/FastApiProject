@@ -10,7 +10,7 @@ from app.routes import posts
 app = FastAPI(root_path="/api/v1")
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
 app.add_middleware(
-    CORSMiddleware,    # type: ignore
+    CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],

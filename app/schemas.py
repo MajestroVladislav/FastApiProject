@@ -17,7 +17,7 @@ class UserCreate(BaseModel):
         return name
 
     @field_validator('password')
-    def validate_name(cls, password):
+    def validate_password(cls, password):
         if len(password) < 8:
             raise ValueError("Password is too short, please include 8 or more symbols")
         return password
