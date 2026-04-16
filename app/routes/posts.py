@@ -6,14 +6,19 @@ from sqlalchemy.exc import IntegrityError
 from app.models import Post, User, Category, Location  # Импортируем ORM-модели
 from app.schemas import PostCreate, PostRead, UserCreate, UserRead, CategoryRead, CategoryCreate, LocationRead, LocationCreate  # Импортируем Pydantic-схемы
 from app.database import get_db  # Импортируем зависимость для БД
+from app.routes.auth import get_current_user
 from exeptions import Domain as domain, Infrastructure as database
 
 router = APIRouter()
 
-# Эндпоинт для создания поста
+# Эндпоинт для создания поста (защищен авторизацией)
 @router.post("/", response_model=PostRead, status_code=status.HTTP_201_CREATED)
-async def create_post(post: PostCreate, db: Session = Depends(get_db)):
+async def create_post(post: PostCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        # Проверяем, что автор поста совпадает с текущим авторизованным пользователем
+        if post.author_id != current_user.id:
+            raise domain.WrongUserError()  # Исключение 0: попытка создать пост от имени иного пользователя
+
         # Проверяем существование автора, категории и локации
         db_author = db.query(User).filter(User.id == post.author_id).first()
         if not db_author:
@@ -32,6 +37,8 @@ async def create_post(post: PostCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_post)  # Обновляем объект, чтобы получить ID и другие сгенерированные поля
         return db_post
+    except domain.WrongUserError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)+": Вы не можете создавать посты от имени другого пользователя.")
     except domain.UserNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))  # Ловим исключение 1
     except domain.CategoryNotFoundError as e:
@@ -46,7 +53,7 @@ async def create_post(post: PostCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Internal server error: {str(e)}")  # Ловим какую-либо ошибку
 
-# Эндпоинт для получения всех постов
+# Эндпоинт для получения всех постов (публичный)
 @router.get("/", response_model=List[PostRead])
 async def get_posts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     try:
@@ -58,29 +65,33 @@ async def get_posts(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Internal server error: {str(e)}")  # Ловим какую-либо ошибку
 
-# Эндпоинт для получения одного поста по ID
+# Эндпоинт для получения одного поста по ID (публичный)
 @router.get("/{post_id}", response_model=PostRead)
 async def get_post(post_id: int, db: Session = Depends(get_db)):
     try:
         post = db.query(Post).filter(Post.id == post_id).first()
         if post is None:
-            raise HTTPException(status_code=404, detail="Post not found")  # Исключение 1: пост не найден
+            raise domain.PostNotFoundError(post_id)  # Исключение 1: пост не найден
         return post
-    except HTTPException:
-        raise HTTPException(status_code=404, detail="Post not found")  # Ловим исключение 1
+    except domain.PostNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))  # Ловим исключение 1
     except database.DatabaseError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")  # Ловим какую-либо ошибку базы данных
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Internal server error: {str(e)}")  # Ловим какую-либо ошибку
 
-# Эндпоинт для обновления поста
+# Эндпоинт для обновления поста (защищен авторизацией, только автор может редактировать)
 @router.put("/{post_id}", response_model=PostRead)
-async def update_post(post_id: int, updated_post_data: PostCreate, db: Session = Depends(get_db)):
+async def update_post(post_id: int, updated_post_data: PostCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         db_post = db.query(Post).filter(Post.id == post_id).first()
         if db_post is None:
-            raise HTTPException(status_code=404, detail="Post not found")  # Исключение 1: пост не найден
+            raise domain.PostNotFoundError(post_id)  # Исключение 1: пост не найден
+
+        # Проверяем, что текущий пользователь является автором поста
+        if db_post.author_id != current_user.id:
+            raise domain.WrongUserError()  # Исключение 2: пользователь не является автором поста
 
         # Обновляем поля поста
         for key, value in updated_post_data.dict(exclude_unset=True).items():
@@ -90,8 +101,10 @@ async def update_post(post_id: int, updated_post_data: PostCreate, db: Session =
         db.commit()
         db.refresh(db_post)
         return db_post
-    except HTTPException:
-        raise HTTPException(status_code=404, detail="Post not found")  # Ловим исключение 1
+    except domain.PostNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))  # Ловим исключение 1
+    except domain.WrongUserError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)+": Вы не можете редактировать чужой пост.")  # Ловим исключение 2
     except database.DatabaseError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")  # Ловим какую-либо ошибку базы данных
     except Exception as e:
@@ -104,12 +117,13 @@ async def delete_post(post_id: int, db: Session = Depends(get_db)):
     try:
         db_post = db.query(Post).filter(Post.id == post_id).first()
         if db_post is None:
-            raise HTTPException(status_code=404, detail="Post not found")  # Исключение 1: пост не найден
+            raise domain.PostNotFoundError(post_id)  # Исключение 1: пост не найден
 
         db.delete(db_post)
         db.commit()
         return {"message": "Post deleted successfully"}
-
+    except domain.PostNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))  # Ловим исключение 1
     except database.DatabaseError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")  # Ловим какую-либо ошибку базы данных
     except Exception as e:

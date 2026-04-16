@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -24,6 +24,15 @@ class UserCreate(BaseModel):
 
 class UserRead(BaseModel):
     id: int
+
+class UserLogin(BaseModel):
+    username: str = Field(..., alias="username")
+    password: str
+
+# Модель токена, в которой возвращается JWT
+class Token(BaseModel):
+    access_token: str = Field(..., description="JWT токен доступа")
+    token_type: str = "bearer"
 
 class CategoryBase(BaseModel):
     title: str

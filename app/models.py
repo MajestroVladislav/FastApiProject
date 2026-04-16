@@ -1,7 +1,9 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship, declarative_base
+from passlib.context import CryptContext
 
 Base = declarative_base()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class User(Base):
     __tablename__ = 'users'
@@ -12,6 +14,9 @@ class User(Base):
 
     posts = relationship("Post", back_populates="author")
     comments = relationship("Comment", back_populates="author")
+
+    def verify_password(self, plain_password: str) -> bool:
+        return pwd_context.verify(plain_password, self.password)
 
 class Category(Base):
     __tablename__ = 'categories'
