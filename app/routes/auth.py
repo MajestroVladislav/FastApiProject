@@ -4,6 +4,11 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import jwt
+from jwt import PyJWTError
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 from app import models, schemas
 from app.database import get_db
@@ -12,19 +17,34 @@ from passlib.context import CryptContext
 
 router = APIRouter()
 
-# Конфигурация ключей и алгоритма JWT
-SECRET_KEY = "fju834fjuihfijwur924ri2ru2r9i2rjowihf84rjr2r293rej"
-ALGORITHM = "HS256"
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+TYPE = os.getenv("TYPE")
+
 ACCESS_TOKEN_EXPIRE_MINUTES = 5
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
+def truncate_password(password: str) -> str:
+    # Преобразуем пароль в байты UTF-8
+    password_bytes = password.encode('utf-8')
+    # Берём первые 72 байта
+    trunc_bytes = password_bytes[:72]
+    # Возвращаем обратно строку (возможно с усечением символов)
+    return trunc_bytes.decode('utf-8', 'ignore')
+
+
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    safe_password = truncate_password(plain_password)
+    print(safe_password, hashed_password)
+    return pwd_context.verify(safe_password, hashed_password)
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    safe_password = truncate_password(password)
+    return pwd_context.hash(safe_password)
 
 def get_user(db: Session, username: str):
     return db.query(models.User).filter(models.User.name == username).first()
@@ -55,27 +75,26 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.name}, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": TYPE.lower()}
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Не удалось аутентифицировать пользователя",
-        headers={"WWW-Authenticate": "Bearer"},
+        headers={"WWW-Authenticate": TYPE},
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except jwt.JWTError:
+    except PyJWTError:
         raise credentials_exception
     user = get_user(db, username=username)
     if user is None:
         raise credentials_exception
     return user
 
-# Пример защищённого эндпоинта, для теста авторизации
 @router.get("/users/me", response_model=schemas.UserRead, tags=["auth"])
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user

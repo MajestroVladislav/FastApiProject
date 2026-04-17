@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models import Post, User, Category, Location  # Импортируем ORM-модели
 from app.schemas import PostCreate, PostRead, UserCreate, UserRead, CategoryRead, CategoryCreate, LocationRead, LocationCreate  # Импортируем Pydantic-схемы
 from app.database import get_db  # Импортируем зависимость для БД
-from app.routes.auth import get_current_user
+from app.routes.auth import get_current_user, get_password_hash
 from exeptions import Domain as domain, Infrastructure as database
 
 router = APIRouter()
@@ -134,18 +134,25 @@ async def delete_post(post_id: int, db: Session = Depends(get_db)):
 @router.post("/users/", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     try:
-        db_user = User(**user.dict())
+        hashed_password = get_password_hash(user.password)
+
+        # Создаем словарь для модели User, используя хешированный пароль
+        user_data_for_db = user.dict()
+        user_data_for_db['password'] = hashed_password
+
+        db_user = User(**user_data_for_db)  # Используем словарь с хешированным паролем
+
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
         return db_user
     except IntegrityError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Integrity error: {str(e)}")  # Ловим непредусмотренное исключение, вдруг что-то не так введено
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Integrity error: {str(e)}")
     except database.DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")  # Ловим какую-либо ошибку базы данных
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=f"Internal server error: {str(e)}")  # Ловим какую-либо ошибку
+                            detail=f"Internal server error: {str(e)}")
 
 
 @router.post("/categories/", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
