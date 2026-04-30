@@ -2,6 +2,7 @@ import asyncio
 import uvicorn
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from app.routes import posts, auth
@@ -10,6 +11,7 @@ from app.routes import posts, auth
 app = FastAPI(root_path="/api/v1")
 app.include_router(posts.router, prefix="/posts", tags=["posts"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.mount("/static/images", StaticFiles(directory="images"), name="static_images")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,7 +22,7 @@ app.add_middleware(
 
 
 async def run() -> None:
-    config = uvicorn.Config("main:app", host="localhost", port=8000, reload=False)
+    config = uvicorn.Config("main:app", host="0.0.0.0", port=8000, reload=False)
     server = uvicorn.Server(config=config)
     tasks = (
         asyncio.create_task(server.serve()),

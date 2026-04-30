@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 from typing import Optional
+from fastapi import UploadFile
 
 class UserBase(BaseModel):
     name: str
@@ -45,7 +46,7 @@ class CategoryRead(CategoryBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class LocationBase(BaseModel):
@@ -58,14 +59,14 @@ class LocationRead(LocationBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class PostBase(BaseModel):
     title: str
     text: str
     pub_date: Optional[datetime]
-    image: Optional[str]
-
+    image: Optional[str] = Field(None, description="URL изображение у поста")
+    
 
 class PostCreate(PostBase):
     author_id: int
@@ -78,6 +79,8 @@ class PostRead(PostBase):
     author: UserRead
     location: LocationBase
     category: CategoryBase
+    
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CommentBase(BaseModel):

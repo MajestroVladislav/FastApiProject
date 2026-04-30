@@ -1,0 +1,31 @@
+services:
+  FastApiProject:
+    build:
+      context: .
+    image: application
+    volumes:
+      - ./app:/application/app
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8020:8000"
+    entrypoint: ["/application/start.sh"]
+    depends_on:
+      - db
+    environment:
+      SQLALCHEMY_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+volumes:
+  postgres_data:
